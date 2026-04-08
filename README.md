@@ -2,7 +2,7 @@
 
 After you create a project from this template, the project URL will appear here automatically.
 
-<!-- deployment-url -->
+**Live app:** [https://yaroslav-radchenko.lvn.lol](https://yaroslav-radchenko.lvn.lol) <!-- deployment-url -->
 
 # Vibe Project Template
 
