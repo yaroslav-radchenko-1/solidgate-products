@@ -1,0 +1,58 @@
+name: Upsert Cloudflare DNS Record
+description: Creates or updates a DNS record under lvn.lol in Cloudflare (GET → POST or PUT). Requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID env vars.
+
+inputs:
+  type:
+    description: "CNAME | TXT"
+    required: true
+  name:
+    description: Record name within lvn.lol (e.g. "my-app" or "_railway-verify.my-app")
+    required: true
+  content:
+    description: Record value
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Upsert DNS record
+      shell: sh
+      run: |
+        cf_url="https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records"
+        cf_auth="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+
+        # Fully-qualified domain name — the complete DNS name Cloudflare uses to look up the record
+        # e.g. "my-app.lvn.lol" or "_railway-verify.my-app.lvn.lol"
+        fqdn="${{ inputs.name }}.lvn.lol"
+
+        # TXT record values must be wrapped in quotes per Cloudflare API
+        if [ "${{ inputs.type }}" = "TXT" ]; then
+          content_str="\\\"${{ inputs.content }}\\\""
+          extras=""
+        else
+          content_str="${{ inputs.content }}"
+          extras=",\"proxied\":true"
+        fi
+
+        body="{\"type\":\"${{ inputs.type }}\",\"name\":\"${{ inputs.name }}\",\"content\":\"${content_str}\",\"ttl\":1${extras}}"
+
+        existing=$(curl -s \
+          "${cf_url}?type=${{ inputs.type }}&name=${fqdn}" \
+          -H "$cf_auth")
+
+        # Cloudflare-assigned UUID for the record — required to update (PUT) instead of create (POST)
+        record_id=$(echo "$existing" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [ -z "$record_id" ]; then
+          echo "Creating ${{ inputs.type }} record: ${{ inputs.name }}"
+          curl -sf -X POST "$cf_url" \
+            -H "$cf_auth" \
+            -H "Content-Type: application/json" \
+            --data "$body"
+        else
+          echo "Updating ${{ inputs.type }} record: ${{ inputs.name }} (id: ${record_id})"
+          curl -sf -X PUT "${cf_url}/${record_id}" \
+            -H "$cf_auth" \
+            -H "Content-Type: application/json" \
+            --data "$body"
+        fi

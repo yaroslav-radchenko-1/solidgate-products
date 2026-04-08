@@ -1,0 +1,5 @@
+{
+  "jestrunner.configPath": {
+    "**/*.test.ts": "./backend/jest.config.ts"
+  }
+}

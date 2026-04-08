@@ -1,0 +1,157 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+ 
+jobs:
+  deploy:
+    if: ${{ !github.event.repository.is_template }}
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+    outputs:
+      domain: ${{ steps.add-service.outputs.domain }}
+      subdomain: ${{ steps.add-service.outputs.subdomain }}
+      needs_configuration: ${{ steps.add-service.outputs.needs_configuration }}
+      cname_target: ${{ steps.add-service.outputs.cname_target }}
+      txt_name: ${{ steps.add-service.outputs.txt_name }}
+      txt_value: ${{ steps.add-service.outputs.txt_value }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Link or create Railway project
+        run: |
+          REPO_NAME="${{ github.event.repository.name }}"
+          if railway link --project "$REPO_NAME" --workspace "${{ vars.RAILWAY_WORKSPACE_ID }}"; then
+            echo "Linked to existing project: $REPO_NAME"
+          else
+            echo "Creating new project: $REPO_NAME"
+            railway init --name "$REPO_NAME" --workspace "${{ vars.RAILWAY_WORKSPACE_ID }}"
+          fi
+
+      - name: Add web service
+        id: add-service
+        run: |
+          SUBDOMAIN="${{ github.event.repository.name }}"
+          SUBDOMAIN="${SUBDOMAIN//_/-}"
+          CUSTOM_DOMAIN="${SUBDOMAIN}.lvn.lol"
+
+          if railway service web 2>/dev/null; then
+            echo "Service web already exists, linked"
+          else
+            for i in 1 2 3 4 5; do
+              railway add --service web --repo "${{ github.repository }}" --variables "NODE_ENV=production" && break
+              if [ $i -eq 5 ]; then
+                echo "Error: all attempts failed" >&2
+                exit 1
+              fi
+              echo "Attempt $i failed, retrying in 30s..."
+              # Railway takes a moment to index a newly created GitHub repository
+              sleep 30
+            done
+          fi
+
+          # Add custom domain and capture output to parse DNS records
+          DOMAIN_OUTPUT=$(railway domain "$CUSTOM_DOMAIN" --service web 2>&1) || true
+          echo "$DOMAIN_OUTPUT"
+
+          if echo "$DOMAIN_OUTPUT" | grep -q "Domain created:"; then
+            CNAME_TARGET=$(echo "$DOMAIN_OUTPUT" | awk '/CNAME/ {print $3}')
+            TXT_NAME=$(echo "$DOMAIN_OUTPUT" | awk '/TXT/ {print $2}')
+            TXT_VALUE="\"$(echo "$DOMAIN_OUTPUT" | awk '/TXT/ {print $3}' | sed 's/^railway-verify=//')\""
+            echo "cname_target=$CNAME_TARGET" >> $GITHUB_OUTPUT
+            echo "txt_name=$TXT_NAME" >> $GITHUB_OUTPUT
+            echo "txt_value=$TXT_VALUE" >> $GITHUB_OUTPUT
+            echo "needs_configuration=true" >> $GITHUB_OUTPUT
+            echo "subdomain=$SUBDOMAIN" >> $GITHUB_OUTPUT
+          else
+            echo "Custom domain $CUSTOM_DOMAIN already configured, skipping DNS setup"
+            echo "needs_configuration=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "domain=https://$CUSTOM_DOMAIN" >> $GITHUB_OUTPUT
+
+  setup-dns:
+    needs: deploy
+    if: needs.deploy.outputs.needs_configuration == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Cloudflare DNS — CNAME
+        uses: ./.github/actions/upsert-cf-dns-record
+        with:
+          type: CNAME
+          name: ${{ needs.deploy.outputs.subdomain }}
+          content: ${{ needs.deploy.outputs.cname_target }}
+
+      - name: Setup Cloudflare DNS — TXT verification
+        uses: ./.github/actions/upsert-cf-dns-record
+        with:
+          type: TXT
+          name: ${{ needs.deploy.outputs.txt_name }}
+          content: ${{ needs.deploy.outputs.txt_value }}
+
+  publish-url:
+    needs: deploy
+    if: needs.deploy.outputs.needs_configuration == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README and summary
+        run: |
+          DOMAIN="${{ needs.deploy.outputs.domain }}"
+
+          # Write to GitHub Actions Summary
+          echo "## Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "🌍 **Live app:** [$DOMAIN]($DOMAIN)" >> $GITHUB_STEP_SUMMARY
+
+          # Update README.md (replaces entire line containing the marker)
+          sed -i "s|.*<!-- deployment-url -->.*|**Live app:** [$DOMAIN]($DOMAIN) <!-- deployment-url -->|" README.md
+
+          # Commit README.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: update deployment URL [skip ci]"
+          git push
+
+  trigger-build:
+    needs: deploy
+    if: needs.deploy.outputs.needs_configuration == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump build number to trigger Railway deploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Increment build number in README
+          if grep -q '<!-- build-number:' README.md; then
+            CURRENT=$(grep -o '<!-- build-number:[0-9]*' README.md | grep -o '[0-9]*')
+            NEXT=$((CURRENT + 1))
+            sed -i "s/<!-- build-number:$CURRENT -->/<!-- build-number:$NEXT -->/" README.md
+          else
+            echo "<!-- build-number:1 -->" >> README.md
+          fi
+
+          git add README.md
+          git commit -m "chore: trigger deploy #$NEXT [skip ci]"
+          git push

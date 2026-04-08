@@ -1,0 +1,21 @@
+{
+  "name": "project-template",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Full-stack Vue + NestJS project template",
+  "scripts": {
+    "postinstall": "npm install --prefix backend && npm install --prefix frontend",
+    "prepare": "git rev-parse --git-dir > /dev/null 2>&1 && git config core.hooksPath .githooks || true",
+    "dev": "concurrently --names backend,frontend --prefix-colors blue,green \"npm run start:dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend && cp -r frontend/dist backend/public && npm run build --prefix backend",
+    "start": "npm run start:prod --prefix backend",
+    "test": "npm run test --prefix backend && npm run test:unit --prefix frontend",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend && npm run format --prefix frontend && npm run type-check --prefix frontend"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npm install)",
+      "Bash(npm test *)",
+      "Bash(npx *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(node *)",
+      "Bash(brew *)",
+      "Bash(winget *)",
+      "Bash(nvm *)",
+      "Bash(curl -o- *)",
+      "Bash(mkdir *)",
+      "Bash(sudo apt-get install *)",
+      "Bash(sudo yum install *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // \"\"'); if echo \"$f\" | grep -q 'backend/'; then result=$(npm run lint --prefix backend 2>&1); if [ $? -ne 0 ]; then echo \"Lint errors remaining after --fix:\"; echo \"$result\"; exit 1; fi; fi",
+            "statusMessage": "Linting backend code..."
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // \"\"'); if echo \"$f\" | grep -q 'frontend/'; then result=$(npm run format --prefix frontend 2>&1); if [ $? -ne 0 ]; then echo \"Format errors:\"; echo \"$result\"; exit 1; fi; fi",
+            "statusMessage": "Formatting frontend code..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+echo "=== Pre-commit: running quality checks ==="
+
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "Quality checks failed. Fix errors before committing."
+  exit 1
+fi
+
+# Re-stage any auto-fixed files
+git add -u
+
+echo "=== All checks passed ==="
