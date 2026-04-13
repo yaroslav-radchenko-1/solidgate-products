@@ -35,4 +35,4 @@ All commands are run inside Claude Code by typing `/command-name`:
 | `/save` | Save and upload all changes to GitHub |
 | `/sync` | Download latest changes from GitHub |
 | `/lint` | Fix all code style issues |
-<!-- build-number:1 -->
+<!-- build-number:2 -->
