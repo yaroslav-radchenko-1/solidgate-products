@@ -16,12 +16,12 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter(),
   );
 
-  app.setGlobalPrefix('api', { exclude: [] });
+  app.setGlobalPrefix('api');
   app.enableShutdownHooks();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  // SPA fallback: for any non-API GET that doesn't match a static file,
-  // return index.html so Vue Router can handle the route.
+  // SPA fallback: rewrite 404 responses on non-API GET requests to
+  // index.html so Vue Router can handle client-side routes.
   const indexPath = join(__dirname, '..', '..', 'public', 'index.html');
   let indexHtml: string | null = null;
   try {
@@ -31,18 +31,19 @@ async function bootstrap(): Promise<void> {
   }
 
   const fastifyInstance = app.getHttpAdapter().getInstance();
-  fastifyInstance.setNotFoundHandler((request, reply) => {
-    if (request.method !== 'GET' || request.url.startsWith('/api')) {
-      void reply.status(404).send({ message: 'Not Found', statusCode: 404 });
+  fastifyInstance.addHook('onSend', async (request, reply, payload) => {
+    if (
+      indexHtml &&
+      reply.statusCode === 404 &&
+      request.method === 'GET' &&
+      !request.url.startsWith('/api')
+    ) {
+      void reply.code(200).type('text/html; charset=utf-8');
 
-      return;
+      return indexHtml;
     }
-    if (!indexHtml) {
-      void reply.status(404).send({ message: 'Not Found', statusCode: 404 });
 
-      return;
-    }
-    void reply.type('text/html').send(indexHtml);
+    return payload;
   });
 
   const config = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
