@@ -1,4 +1,13 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { RouteName } from '@/router/router.enums'
+
+const router = useRouter()
+
+const handleNavigateToProducts = () => {
+  router.push({ name: RouteName.ProductCreate })
+}
+</script>
 
 <template>
   <main class="home">
@@ -17,6 +26,12 @@
           <p>Just type what you want to build and Claude will handle the rest</p>
         </div>
       </div>
+    </section>
+
+    <section class="product-cta">
+      <button class="product-cta__button" type="button" @click="handleNavigateToProducts">
+        Create Solidgate Product
+      </button>
     </section>
 
     <section class="info">
@@ -150,6 +165,27 @@
     font-size: 0.9375rem;
     color: #486d84;
     line-height: 1.5;
+  }
+}
+
+// Product CTA
+.product-cta {
+  text-align: center;
+  padding: 0 0 2rem;
+
+  &__button {
+    padding: 0.75rem 2rem;
+    background: #5ca701;
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #4e8f01;
+    }
   }
 }
 

@@ -5,6 +5,10 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { appConfig } from './config/app.config';
 import { databaseConfig } from './config/database.config';
+import { SettingsModule } from './settings/settings.module';
+import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
+import { SolidgateModule } from './solidgate/solidgate.module';
+import { TemplatesModule } from './templates/templates.module';
 
 @Module({
   imports: [
@@ -27,6 +31,10 @@ import { databaseConfig } from './config/database.config';
         synchronize: false,
       }),
     }),
+    SettingsModule,
+    ExchangeRatesModule,
+    SolidgateModule,
+    TemplatesModule,
   ],
 })
 export class AppModule {}
