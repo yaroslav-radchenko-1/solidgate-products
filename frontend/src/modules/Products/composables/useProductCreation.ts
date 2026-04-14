@@ -293,10 +293,17 @@ export const useProductCreation = (): UseProductCreationReturns => {
           trialPrice: finalTrialPrice,
         })
         currentStep.status = 'success'
-      } catch (err) {
+      } catch (err: unknown) {
         currentStep.status = 'error'
+        const axiosErr = err as { response?: { data?: unknown }; message?: string }
+        const serverBody = axiosErr.response?.data
+        let detail = ''
+        if (serverBody && typeof serverBody === 'object') {
+          const body = serverBody as { error?: { messages?: string[] }; message?: string }
+          detail = body.error?.messages?.join('; ') || body.message || JSON.stringify(serverBody)
+        }
         currentStep.error =
-          err instanceof Error ? err.message : `Failed to create price for ${row.countryName}`
+          detail || axiosErr.message || `Failed to create price for ${row.countryName}`
         errors.value.push(currentStep.error ?? '')
       }
 
