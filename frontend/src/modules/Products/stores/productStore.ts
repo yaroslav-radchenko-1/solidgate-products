@@ -1,11 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { ExchangeRates, Settings } from '../types/product.types'
+import type { ExchangeRates, Settings, SettingsUpdate } from '../types/product.types'
 import * as productApi from '../services/productApi'
 
 export const useProductStore = defineStore('product', () => {
   const exchangeRates = ref<ExchangeRates>({})
-  const settings = ref<Settings>({ publicKey: '', secretKey: '' })
+  const settings = ref<Settings>({ publicKey: '', hasSecretKey: false })
 
   const fetchExchangeRates = async () => {
     const data = await productApi.fetchExchangeRates()
@@ -25,8 +25,8 @@ export const useProductStore = defineStore('product', () => {
     settings.value = await productApi.fetchSettings()
   }
 
-  const saveSettings = async (newSettings: Settings) => {
-    settings.value = await productApi.saveSettings(newSettings)
+  const saveSettings = async (update: SettingsUpdate) => {
+    settings.value = await productApi.saveSettings(update)
   }
 
   return {

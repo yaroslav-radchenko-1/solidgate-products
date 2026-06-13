@@ -10,14 +10,6 @@ export class SettingsRepository {
     private readonly repository: Repository<Setting>,
   ) {}
 
-  public async findAll(): Promise<Setting[]> {
-    return this.repository.find();
-  }
-
-  public async findByKey(key: string): Promise<Setting | null> {
-    return this.repository.findOneBy({ key });
-  }
-
   public async findByKeys(keys: string[]): Promise<Setting[]> {
     return this.repository.findBy({ key: In(keys) });
   }

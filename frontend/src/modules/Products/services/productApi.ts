@@ -3,6 +3,7 @@ import type {
   ExchangeRates,
   ProductFormData,
   Settings,
+  SettingsUpdate,
   TemplateListItem,
   TemplateFull,
 } from '../types/product.types'
@@ -105,25 +106,11 @@ export const createProductPrice = (
 export const fetchExchangeRates = (): Promise<ExchangeRates> =>
   api.get('/exchange-rates').then((res) => (res.data as { rates: ExchangeRates }).rates)
 
-type SettingEntry = { key: string; value: string }
+export const fetchSettings = (): Promise<Settings> =>
+  api.get('/settings').then((res) => res.data as Settings)
 
-export const fetchSettings = async (): Promise<Settings> => {
-  const entries = await api.get('/settings').then((res) => res.data as SettingEntry[])
-  const map = new Map(entries.map((e) => [e.key, e.value]))
-  return {
-    publicKey: map.get('solidgate_public_key') ?? '',
-    secretKey: map.get('solidgate_secret_key') ?? '',
-  }
-}
-
-export const saveSettings = async (settings: Settings): Promise<Settings> => {
-  const payload = [
-    { key: 'solidgate_public_key', value: settings.publicKey },
-    { key: 'solidgate_secret_key', value: settings.secretKey },
-  ]
-  await api.put('/settings', payload)
-  return settings
-}
+export const saveSettings = (update: SettingsUpdate): Promise<Settings> =>
+  api.put('/settings', update).then((res) => res.data as Settings)
 
 export const fetchTemplates = (): Promise<TemplateListItem[]> =>
   api.get('/templates').then((res) => res.data as TemplateListItem[])

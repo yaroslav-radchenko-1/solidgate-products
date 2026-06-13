@@ -1,10 +1,13 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 
-export class UpdateSettingDto {
+export class UpdateSettingsDto {
   @IsString()
   @MinLength(1)
-  public key: string;
+  public publicKey: string;
 
+  // Optional: only sent when the user enters a new secret key. When omitted
+  // or empty, the stored secret key is left unchanged.
+  @IsOptional()
   @IsString()
-  public value: string;
+  public secretKey?: string;
 }

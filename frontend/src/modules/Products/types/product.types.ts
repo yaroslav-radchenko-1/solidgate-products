@@ -46,9 +46,18 @@ export type ProductFormData = {
 
 export type ExchangeRates = Record<string, number>
 
+// What the backend returns: the public key plus a flag for whether a secret
+// key is stored. The secret value itself is never sent to the client.
 export type Settings = {
   publicKey: string
-  secretKey: string
+  hasSecretKey: boolean
+}
+
+// What we send when saving. The secret key is only included when the user
+// enters a new one; otherwise the stored secret is left unchanged.
+export type SettingsUpdate = {
+  publicKey: string
+  secretKey?: string
 }
 
 export type SubmissionStep = {

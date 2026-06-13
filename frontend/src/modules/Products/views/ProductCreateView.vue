@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useProductCreation } from '../composables/useProductCreation'
 import { useProductStore } from '../stores/productStore'
-import type { PriceMode, PriceRow } from '../types/product.types'
+import type { PriceMode, PriceRow, SettingsUpdate } from '../types/product.types'
+import SettingsPanel from '../components/SettingsPanel.vue'
 import TemplateManager from '../components/TemplateManager.vue'
 import ProductForm from '../components/ProductForm.vue'
 import PricingSpreadsheet from '../components/PricingSpreadsheet.vue'
@@ -33,8 +34,13 @@ const {
   loadTemplate,
 } = useProductCreation()
 
-const DEFAULT_PUBLIC_KEY = 'api_pk_0bf6ecca_a325_4526_8631_4b577a90a9df'
-const DEFAULT_SECRET_KEY = 'api_sk_618581bc_9f29_467a_93f6_876662a97ba8'
+const areKeysConfigured = computed(
+  () => Boolean(store.settings.publicKey) && store.settings.hasSecretKey,
+)
+
+const handleSaveSettings = async (update: SettingsUpdate) => {
+  await store.saveSettings(update)
+}
 
 const handleSetCurrency = (index: number, currency: string) => {
   const row = priceRows[index]
@@ -76,12 +82,6 @@ const handleSubmit = () => {
 onMounted(async () => {
   try {
     await Promise.all([store.fetchExchangeRates(), store.fetchSettings()])
-    if (!store.settings.publicKey || !store.settings.secretKey) {
-      await store.saveSettings({
-        publicKey: DEFAULT_PUBLIC_KEY,
-        secretKey: DEFAULT_SECRET_KEY,
-      })
-    }
   } catch {
     // settings or rates may not be available yet
   }
@@ -91,6 +91,13 @@ onMounted(async () => {
 <template>
   <main class="product-create">
     <h1 class="product-create__heading">Create Solidgate Product</h1>
+
+    <SettingsPanel :settings="store.settings" @save="handleSaveSettings" />
+
+    <p v-if="!areKeysConfigured" class="product-create__keys-warning">
+      ⚠️ Solidgate API keys are not set. Open <strong>API Settings</strong> above and enter your
+      public and secret keys before creating a product.
+    </p>
 
     <TemplateManager :on-save="saveAsTemplate" @load="handleTemplateLoad" />
 
@@ -130,7 +137,7 @@ onMounted(async () => {
     <button
       class="product-create__submit"
       type="button"
-      :disabled="isSubmitting || !formData.description"
+      :disabled="isSubmitting || !formData.description || !areKeysConfigured"
       @click="handleSubmit"
     >
       {{ isSubmitting ? 'Submitting...' : 'Create Product' }}
@@ -149,6 +156,16 @@ onMounted(async () => {
     font-weight: 700;
     margin: 0 0 1.5rem;
     color: var(--color-heading);
+  }
+
+  &__keys-warning {
+    margin: 0 0 1.5rem;
+    padding: 0.75rem 1rem;
+    background: #fff8e1;
+    border: 0.0625rem solid #f0c36d;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: #7a5b00;
   }
 
   &__submit {

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import type { Settings } from '../types/product.types'
+import { computed, ref, watch } from 'vue'
+import type { Settings, SettingsUpdate } from '../types/product.types'
 
 type SettingsPanelProps = {
   settings: Settings
 }
 
 type SettingsPanelEmits = {
-  save: [settings: Settings]
+  save: [update: SettingsUpdate]
 }
 
 const props = defineProps<SettingsPanelProps>()
@@ -15,23 +15,45 @@ const emit = defineEmits<SettingsPanelEmits>()
 
 const isExpanded = ref(false)
 const localPublicKey = ref('')
+// The secret key is never sent to the client, so this field always starts
+// empty. Leaving it blank on save keeps the stored secret unchanged.
 const localSecretKey = ref('')
+
+const canSave = computed(() => {
+  if (!localPublicKey.value.trim()) return false
+  // A secret must be entered at least once, when none is stored yet.
+  if (!props.settings.hasSecretKey && !localSecretKey.value.trim()) return false
+  return true
+})
 
 const handleToggle = () => {
   isExpanded.value = !isExpanded.value
 }
 
 const handleSave = () => {
+  if (!canSave.value) return
+
+  const secretKey = localSecretKey.value.trim()
   emit('save', {
-    publicKey: localPublicKey.value,
-    secretKey: localSecretKey.value,
+    publicKey: localPublicKey.value.trim(),
+    ...(secretKey ? { secretKey } : {}),
   })
+  localSecretKey.value = ''
 }
 
-onMounted(() => {
-  localPublicKey.value = props.settings.publicKey
-  localSecretKey.value = props.settings.secretKey
-})
+// Keep the public-key field in sync with loaded/saved settings, and open the
+// panel automatically when keys still need to be configured.
+watch(
+  () => props.settings,
+  (settings) => {
+    localPublicKey.value = settings.publicKey
+    localSecretKey.value = ''
+    if (!settings.publicKey || !settings.hasSecretKey) {
+      isExpanded.value = true
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -51,15 +73,28 @@ onMounted(() => {
         />
       </div>
       <div class="settings-panel__field">
-        <label class="settings-panel__label">Secret Key</label>
+        <label class="settings-panel__label">
+          Secret Key
+          <span
+            class="settings-panel__status"
+            :class="{ 'settings-panel__status--set': settings.hasSecretKey }"
+          >
+            {{ settings.hasSecretKey ? 'saved ✓' : 'not set' }}
+          </span>
+        </label>
         <input
           v-model="localSecretKey"
-          type="text"
+          type="password"
+          autocomplete="off"
           class="settings-panel__input"
-          placeholder="Enter secret key"
+          :placeholder="
+            settings.hasSecretKey ? 'Leave blank to keep current secret key' : 'Enter secret key'
+          "
         />
       </div>
-      <button class="settings-panel__save" type="button" @click="handleSave">Save Settings</button>
+      <button class="settings-panel__save" type="button" :disabled="!canSave" @click="handleSave">
+        Save Settings
+      </button>
     </div>
   </div>
 </template>
@@ -104,9 +139,21 @@ onMounted(() => {
   }
 
   &__label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--color-text);
+  }
+
+  &__status {
+    font-weight: 500;
+    color: #a05a00;
+
+    &--set {
+      color: #5ca701;
+    }
   }
 
   &__input {
@@ -132,8 +179,13 @@ onMounted(() => {
     font-weight: 600;
     cursor: pointer;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: #4e8f01;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 }

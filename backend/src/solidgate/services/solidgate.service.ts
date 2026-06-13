@@ -1,4 +1,4 @@
-import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { createHmac } from 'crypto';
 import { solidgateConfig } from '../solidgate.config';
@@ -27,12 +27,26 @@ export class SolidgateService {
 
     const settingsMap = new Map(settings.map((s) => [s.key, s.value]));
 
-    return {
-      publicKey:
-        settingsMap.get('solidgate_public_key') || this.config.publicKey,
-      secretKey:
-        settingsMap.get('solidgate_secret_key') || this.config.secretKey,
-    };
+    const publicKey =
+      settingsMap.get('solidgate_public_key') || this.config.publicKey;
+    const secretKey =
+      settingsMap.get('solidgate_secret_key') || this.config.secretKey;
+
+    if (!publicKey || !secretKey) {
+      throw new HttpException(
+        {
+          error: {
+            messages: [
+              'Solidgate API keys are not configured. Open "API Settings" ' +
+                'and enter your public and secret keys.',
+            ],
+          },
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return { publicKey, secretKey };
   }
 
   private async makeRequest<T>(

@@ -1,13 +1,12 @@
 import { registerAs } from '@nestjs/config';
 import { z } from 'zod';
 
+// Keys are configured at runtime via the Settings panel (stored in the DB).
+// These env vars are only an optional fallback for local development and
+// MUST NOT contain real credentials — they default to empty.
 const schema = z.object({
-  SOLIDGATE_PUBLIC_KEY: z
-    .string()
-    .default('api_pk_0bf6ecca_a325_4526_8631_4b577a90a9df'),
-  SOLIDGATE_SECRET_KEY: z
-    .string()
-    .default('api_sk_618581bc_9f29_467a_93f6_876662a97ba8'),
+  SOLIDGATE_PUBLIC_KEY: z.string().default(''),
+  SOLIDGATE_SECRET_KEY: z.string().default(''),
 });
 
 export const solidgateConfig = registerAs('solidgate', () => {
