@@ -320,18 +320,20 @@ export const useProductCreation = (): UseProductCreationReturns => {
     const defaultRow = priceRows[0]
     const price = defaultRow?.usdPrice ?? ''
 
+    // One-time: no period or trial, so the trial/period slots are zero-filled.
     if (formData.type === 'one-time') {
-      return `${price} || ${desc}`
+      return `${price}_0_0_0_${desc}`
     }
 
     const period = periodNumber(formData.billingPeriod || '')
     if (formData.trial) {
       const trialPrice = defaultRow?.trialUsdPrice ?? ''
       const trialPeriod = periodNumber(formData.trialBillingPeriod || '')
-      return `${trialPrice}/${trialPeriod}_${price}/${period} || ${desc}`
+      return `${trialPrice}_${price}_${trialPeriod}_${period}_${desc}`
     }
 
-    return `${price}/${period} || ${desc}`
+    // No trial: duplicate the default price/period into the trial slots.
+    return `${price}_${price}_${period}_${period}_${desc}`
   })
 
   const templateList = ref<TemplateListItem[]>([])
